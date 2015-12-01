@@ -12,7 +12,7 @@
 import tables
 import sequtils
 from oids import nil
-from os import nil
+from os import putEnv
 from osproc import nil
 from strutils import repeat, `%`, endsWith, removeSuffix, contains, startsWith, split
 import logging
@@ -29,6 +29,7 @@ type OmegaConfig = ref object of RootObj
   debug: bool
   verbose: bool
   parallel: bool
+  brightbg: bool
 
   nimCmdPath: string
 
@@ -46,6 +47,7 @@ proc newConfig(): OmegaConfig =
     debug: false,
     verbose: false,
     parallel: false,
+    brightbg: false,
     paths: @[],
     files: @[],
     compilerOptions: @[],
@@ -269,11 +271,18 @@ Commander:
     kind: STRING_VALUE
     multi: true
 
+  flag:
+    longName: "lighttheme"
+    shortName: "l"
+    description: "Use dark colors on light background."
+
   handle:
     var conf = newConfig()
     conf.debug = flags["debug"].boolVal
     conf.verbose = flags["verbose"].boolVal
     conf.parallel = flags["parallel"].boolVal
+    if flags["lighttheme"].boolVal:
+      putEnv("OMEGA_COLORTHEME", "light")
 
     var nimPaths: seq[string] = @[]
     for p in flags["include-path"].values:

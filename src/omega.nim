@@ -10,8 +10,9 @@
 ###############################################################################
 
 
-from terminal import nil
+from os import getEnv
 from strutils import join, `%`, repeat, splitLines
+from terminal import nil
 from times import epochTime
 import macros
 #from alpha import AlphaError
@@ -98,6 +99,28 @@ type
     failed*: int
     timeTaken*: float
 
+const
+  colortheme_dark = (
+    # dark background: default
+    foreground: terminal.fgWhite,
+    success: terminal.fgGreen,
+    skip: terminal.fgBlue,
+    fail: terminal.fgRed,
+  )
+
+  colortheme_light = (
+    foreground: terminal.fgBlack,
+    success: terminal.fgGreen,
+    skip: terminal.fgBlue,
+    fail: terminal.fgRed,
+  )
+
+var colortheme = colortheme_dark
+
+proc set_color_theme() =
+  if getEnv("OMEGA_COLORTHEME") == "light":
+    colortheme = colortheme_light
+
 # Description procs.
 
 proc testCount(descr: OmegaDescription): int =
@@ -163,7 +186,8 @@ type
     suites: seq[OmegaSuite]
     randomizeSuites: bool
     runParallel: int
-    reporters: seq[Reporter] 
+    reporters: seq[Reporter]
+
 
 
 # Reporter base methods.
@@ -323,7 +347,7 @@ proc runSuite(this: Handler, suite: OmegaSuite): SuiteResult =
       suite.teardown()
     except:
       res.error = getCurrentException()
-      
+
   res.timeTaken = epochTime() - startTime
 
   for r in this.reporters:
@@ -332,6 +356,7 @@ proc runSuite(this: Handler, suite: OmegaSuite): SuiteResult =
   return res
 
 proc run*(this: Handler): OmegaResult =
+  set_color_theme()
   for r in this.reporters:
     r.onStart(this)
 
@@ -367,67 +392,67 @@ method onTestFinished(this: TerminalReporter, test: TestResult) =
 
   case test.status
   of SUCCESS:
-    terminal.setForegroundColor(stdout, terminal.fgGreen)
+    terminal.setForegroundColor(stdout, colortheme.success)
     write(stdout, "*")
-    terminal.setForegroundColor(stdout, terminal.fgWhite)
+    terminal.setForegroundColor(stdout, colortheme.foreground)
 
   of SKIPPED:
     terminal.styledEcho(
       "\n",
-      terminal.fgBlue, "#".repeat(80) & "\n", "# ",
+      colortheme.skip, "#".repeat(80) & "\n", "# ",
       "Test skipped: ",
-      terminal.fgWhite, name,
-      terminal.fgBlue, test.name, 
-      terminal.fgWhite, " => ", 
+      colortheme.foreground, name,
+      colortheme.skip, test.name, 
+      colortheme.foreground, " => ", 
       test.skipReason, 
     )
-    terminal.styledEcho(terminal.fgBlue, "#".repeat(80))
+    terminal.styledEcho(colortheme.skip, "#".repeat(80))
 
   of ERROR, BEFORE_EACH_ERR, AFTER_EACH_ERR:
     terminal.styledEcho(
       "\n",
-      terminal.fgRed, "#".repeat(80) & "\n",
-      terminal.fgRed, "# Test failed: \n#\t\n#\t", 
-      terminal.fgWhite, "Test: ", name,
-      terminal.fgRed, test.name, "\n#"
+      colortheme.fail, "#".repeat(80) & "\n",
+      colortheme.fail, "# Test failed: \n#\t\n#\t", 
+      colortheme.foreground, "Test: ", name,
+      colortheme.fail, test.name, "\n#"
     )
 
     discard """
     if test.error of AlphaError:
       var alphaErr = cast[AlphaError](test.error)
       terminal.styledEcho(
-        terminal.fgRed, "#\tExpected\n",
+        colortheme.fail, "#\tExpected\n",
         "#\t    ",
-        terminal.fgWhite, alphaErr.actual, "\n",
-        terminal.fgRed, "#\t", alphaErr.explanation, "\n",
-        terminal.fgRed, "#\t    ",
-        terminal.fgWhite, alphaErr.expected
+        colortheme.foreground, alphaErr.actual, "\n",
+        colortheme.fail, "#\t", alphaErr.explanation, "\n",
+        colortheme.fail, "#\t    ",
+        colortheme.foreground, alphaErr.expected
       )
     else:
     """
-    terminal.styledEcho(terminal.fgRed, "#\tReason:")
+    terminal.styledEcho(colortheme.fail, "#\tReason:")
     for line in test.error.msg.splitLines():
-      terminal.styledEcho(terminal.fgRed, "#\t  ", terminal.fgWhite, line)
+      terminal.styledEcho(colortheme.fail, "#\t  ", colortheme.foreground, line)
       
-    terminal.styledEcho(terminal.fgRed, "#\t")
+    terminal.styledEcho(colortheme.fail, "#\t")
 
     for line in test.error.getStackTrace().splitLines():
-      terminal.styledEcho(terminal.fgRed, "#\t", terminal.fgWhite, line)
+      terminal.styledEcho(colortheme.fail, "#\t", colortheme.foreground, line)
 
-    terminal.styledEcho(terminal.fgRed, "#".repeat(80))
+    terminal.styledEcho(colortheme.fail, "#".repeat(80))
   
   of UNKNOWN:
     terminal.styledEcho(
       "\n",
-      terminal.fgRed, "#".repeat(80) & "\n",
-      terminal.fgRed, "# Test failed: \n#\t\n#\t", 
-      terminal.fgWhite, name,
-      terminal.fgRed, test.name, "\n#"
+      colortheme.fail, "#".repeat(80) & "\n",
+      colortheme.fail, "# Test failed: \n#\t\n#\t", 
+      colortheme.foreground, name,
+      colortheme.fail, test.name, "\n#"
     )
 
-    terminal.styledEcho(terminal.fgRed, "#\tReason:")
-    terminal.styledEcho(terminal.fgRed, "#\t  ", terminal.fgWhite, "Unknown")
-    terminal.styledEcho(terminal.fgRed, "#".repeat(80))
+    terminal.styledEcho(colortheme.fail, "#\tReason:")
+    terminal.styledEcho(colortheme.fail, "#\t  ", colortheme.foreground, "Unknown")
+    terminal.styledEcho(colortheme.fail, "#".repeat(80))
 
 
 method onDescriptionStarted(this: TerminalReporter, descr: OmegaDescription) =
@@ -443,20 +468,20 @@ method onSuiteFinished(this: TerminalReporter, suite: SuiteResult) =
   if suite.error != nil:
     terminal.styledEcho(
       "\n",
-      terminal.fgRed, "#".repeat(80) & "\n",
-      terminal.fgRed, "# Suite failed: \n#\t\n#\t",
-      terminal.fgWhite, "Suite: ",
-      terminal.fgRed, suite.suite, "\n#"
+      colortheme.fail, "#".repeat(80) & "\n",
+      colortheme.fail, "# Suite failed: \n#\t\n#\t",
+      colortheme.foreground, "Suite: ",
+      colortheme.fail, suite.suite, "\n#"
     )
-    terminal.styledEcho(terminal.fgRed, "#\tReason:")
+    terminal.styledEcho(colortheme.fail, "#\tReason:")
     for line in suite.error.msg.splitLines():
-      terminal.styledEcho(terminal.fgRed, "#\t  ", terminal.fgWhite, line)
-    terminal.styledEcho(terminal.fgRed, "#\t")
+      terminal.styledEcho(colortheme.fail, "#\t  ", colortheme.foreground, line)
+    terminal.styledEcho(colortheme.fail, "#\t")
 
     for line in suite.error.getStackTrace().splitLines():
-      terminal.styledEcho(terminal.fgRed, "#\t", terminal.fgWhite, line)
+      terminal.styledEcho(colortheme.fail, "#\t", colortheme.foreground, line)
 
-    terminal.styledEcho(terminal.fgRed, "#".repeat(80))
+    terminal.styledEcho(colortheme.fail, "#".repeat(80))
 
 method onStart(this: TerminalReporter, handler: Handler) =
   echo("Testing $1 suites with $2 tests." % [handler.suites.len().`$`, handler.testCount().`$`])
@@ -466,9 +491,9 @@ method onFinish(this: TerminalReporter, res: OmegaResult) =
   echo("#")
 
   terminal.styledEcho(
-    "#\tSucceeded: ", terminal.fgGreen, res.succeeded.`$`, "\n",
-    terminal.fgWhite, "#\tSkipped: ", terminal.fgBlue, res.skipped.`$`, "\n",
-    terminal.fgWhite, "#\tFailed: ", terminal.fgRed, res.failed.`$`
+    "#\tSucceeded: ", colortheme.success, res.succeeded.`$`, "\n",
+    colortheme.foreground, "#\tSkipped: ", colortheme.skip, res.skipped.`$`, "\n",
+    colortheme.foreground, "#\tFailed: ", colortheme.fail, res.failed.`$`
   )
 
   echo("#")
@@ -601,3 +626,4 @@ when isMainModule:
 
   discard omega.run()
   #res.repr.echo
+
